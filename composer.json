@@ -1,0 +1,25 @@
+{
+  "name": "craftcodery/laravel-searchable",
+  "description": "Searchable trait for Laravel Eloquent models",
+  "keywords": [
+    "laravel",
+    "eloquent",
+    "search"
+  ],
+  "homepage": "https://github.com/craftcodery/laravel-searchable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Craft Codery"
+    }
+  ],
+  "require": {
+    "php": "^7.2|^8.0",
+    "laravel/framework": "^6.0|^7.0|^8.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "CraftCodery\\Searchable\\": "src/"
+    }
+  }
+}
