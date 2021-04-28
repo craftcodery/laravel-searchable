@@ -64,7 +64,7 @@ $users = User::search('john')->get();
 You can configure the different search matchers and weights given to each used by the package.
 
 ```
-php artisan vendor:publish --provider=CraftCodery\Searchable\SearchableServiceProvider --tag="config"
+php artisan vendor:publish --tag=searchable-config
 ```
 
 ## License
