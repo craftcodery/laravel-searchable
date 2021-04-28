@@ -8,8 +8,20 @@ class SearchableServiceProvider extends ServiceProvider
 {
     public function boot()
     {
-        $configPath = __DIR__ . '/../config/searchable.php';
-        $this->publishes([$configPath => config_path('searchable.php')]);
-        $this->mergeConfigFrom($configPath, 'searchable');
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__ . '/../config/searchable.php' => config_path('searchable.php'),
+            ], 'searchable-config');
+        }
+    }
+
+    /**
+     * Register the service provider.
+     *
+     * @return void
+     */
+    public function register()
+    {
+        $this->mergeConfigFrom(__DIR__ . '/../config/searchable.php', 'searchable');
     }
 }

@@ -21,5 +21,12 @@
     "psr-4": {
       "CraftCodery\\Searchable\\": "src/"
     }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "CraftCodery\\Searchable\\SearchableServiceProvider"
+      ]
+    }
   }
 }
