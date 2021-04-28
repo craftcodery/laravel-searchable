@@ -20,7 +20,7 @@ In order to search through models you'll have to use the `Searchable` trait and 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use CraftCodery\Searchable;
+use CraftCodery\Searchable\Searchable;
 
 class User extends Model
 {
