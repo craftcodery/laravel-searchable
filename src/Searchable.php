@@ -111,7 +111,6 @@ trait Searchable
 
         $this->addSelectsToQuery($cloned_query, $selects);
         $this->filterQueryWithRelevance($cloned_query, $relevance_count);
-        $this->makeWhere($cloned_query);
         $this->makeGroupBy($cloned_query);
 
         if ($restriction instanceof Closure) {
@@ -435,24 +434,6 @@ trait Searchable
 
         $query->havingRaw('relevance >= ' . number_format($this->threshold, 2, '.', ''));
         $query->orderBy('relevance', 'desc');
-    }
-
-    /**
-     * Adds where clause to query to deal with fulltext columns.
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     */
-    protected function makeWhere(Builder $query)
-    {
-        if ($this->getDatabaseDriver() === 'sqlite') {
-            return;
-        }
-
-        foreach ($this->getFullTextColumns() as $column => $relevance) {
-            $column = str_replace('.', '`.`', $column);
-
-            $query->whereRaw("MATCH (`$column`) AGAINST (?)", [implode(' ', $this->orderedWords)]);
-        }
     }
 
     /**
