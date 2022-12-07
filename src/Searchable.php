@@ -202,11 +202,11 @@ trait Searchable
             $words = array_filter($words) + $matches[$i];
         }
 
-        $this->words = array_slice($words, 0, 5);
+        $this->words = array_slice($words, 0, $this->searchable['maxWords'] ?? 5);
 
         usort($words, fn($a, $b) => strlen($b) <=> strlen($a));
 
-        $this->orderedWords = array_slice($words, 0, 5);
+        $this->orderedWords = array_slice($words, 0, $this->searchable['maxWords'] ?? 5);
 
         return true;
     }
