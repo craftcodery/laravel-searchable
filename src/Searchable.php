@@ -71,13 +71,14 @@ trait Searchable
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param string $search
+     * @param int $limit
      * @param string|null|Closure $restriction
      *
      * @return \Illuminate\Database\Eloquent\Builder
      *
      * @see search()
      */
-    public function scopeSearch(Builder $query, $search, $restriction = null)
+    public function scopeSearch(Builder $query, $search, $limit = 25, $restriction = null)
     {
         $this->searchable = $this->toSearchableArray();
 
@@ -110,7 +111,7 @@ trait Searchable
         }
 
         $this->addSelectsToQuery($cloned_query, $selects);
-        $this->filterQueryWithRelevance($cloned_query, $relevance_count);
+        $this->filterQueryWithRelevance($cloned_query, $relevance_count, $limit);
         $this->makeGroupBy($cloned_query);
 
         if ($restriction instanceof Closure) {
@@ -125,6 +126,10 @@ trait Searchable
         $this->addBindingsToQuery($cloned_query, $clone_bindings);
 
         $this->mergeQueries($cloned_query, $query);
+
+        if ($this->getDatabaseDriver() === 'sqlsrv') {
+            $query->whereRaw('CAST(relevance AS NUMERIC(10,2)) >= ' . number_format($this->threshold, 2, '.', ''));
+        }
 
         return $query;
     }
@@ -224,7 +229,7 @@ trait Searchable
             unset($matchers['exactFullMatcher'], $matchers['exactInStringMatcher']);
         }
 
-        if ($this->getDatabaseDriver() === 'sqlite') {
+        if (in_array($this->getDatabaseDriver(), ['sqlite', 'sqlsrv'], true)) {
             unset($matchers['similarStringMatcher']);
         }
 
@@ -241,6 +246,20 @@ trait Searchable
         $key = $this->connection ?? config('database.default');
 
         return config('database.connections.' . $key . '.driver');
+    }
+
+    /**
+     * Returns the delimiter to use for the current database driver.
+     *
+     * @return string
+     */
+    protected function getDelimiter()
+    {
+        if ($this->getDatabaseDriver() === 'sqlsrv') {
+            return '"';
+        }
+
+        return '`';
     }
 
     /**
@@ -347,7 +366,7 @@ trait Searchable
      */
     protected function createMatcher($column, $relevance)
     {
-        $formatted = '`' . str_replace('.', '`.`', $column) . '`';
+        $formatted = $this->getDelimiter() . str_replace('.', "{$this->getDelimiter()}.{$this->getDelimiter()}", $column) . $this->getDelimiter();
 
         if (isset($this->searchable['mutations'][$column])) {
             $formatted = $this->searchable['mutations'][$column] . '(' . $formatted . ')';
@@ -406,9 +425,9 @@ trait Searchable
     protected function fullTextMatcher($column, $relevance)
     {
         $this->search_bindings[] = implode(' ', $this->orderedWords);
-        $column = str_replace('.', '`.`', $column);
+        $column = str_replace('.', "{$this->getDelimiter()}.{$this->getDelimiter()}", $column);
 
-        $this->matcherQuery = "(MATCH(`$column`) AGAINST (?) * $relevance * 2)";
+        $this->matcherQuery = "(MATCH({$this->getDelimiter()}$column{$this->getDelimiter()}) AGAINST (?) * $relevance * 2)";
     }
 
     /**
@@ -427,12 +446,20 @@ trait Searchable
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
      * @param int $relevance_count
+     * @param int|null $limit
      */
-    protected function filterQueryWithRelevance(Builder $query, $relevance_count)
+    protected function filterQueryWithRelevance(Builder $query, $relevance_count, $limit)
     {
+        if ($limit === null) {
+            $limit = 25;
+        }
+
         $this->threshold = $relevance_count * (count($this->getColumns()) / 6) * (count($this->getMatchers()) / 6);
 
-        $query->havingRaw('relevance >= ' . number_format($this->threshold, 2, '.', ''));
+        $query->limit($limit);
+        if ($this->getDatabaseDriver() !== 'sqlsrv') {
+            $query->havingRaw('relevance >= ' . number_format($this->threshold, 2, '.', ''));
+        }
         $query->orderBy('relevance', 'desc');
     }
 
@@ -443,6 +470,10 @@ trait Searchable
      */
     protected function makeGroupBy(Builder $query)
     {
+        if ($this->getDatabaseDriver() === 'sqlsrv') {
+            return;
+        }
+        
         if ($groupBy = $this->getGroupBy()) {
             $query->groupBy($groupBy);
         } else {
@@ -562,9 +593,9 @@ trait Searchable
         $this->searchString = '%' . implode('%', str_split(preg_replace('/[^0-9a-zA-Z]/', '', $query))) . '%';
         $this->search_bindings[] = $this->searchString;
         $this->search_bindings[] = $query;
-        $column = str_replace('.', '`.`', $column);
+        $column = str_replace('.', "{$this->getDelimiter()}.{$this->getDelimiter()}", $column);
 
-        $this->matcherQuery = "CASE WHEN REPLACE(`$column`, '\.', '') $this->operator ? THEN ROUND($relevance * ( {$this->getLengthMethod()}( ? ) / {$this->getLengthMethod()}( REPLACE(`$column`, ' ', '') ))) ELSE 0 END";
+        $this->matcherQuery = "CASE WHEN REPLACE({$this->getDelimiter()}$column{$this->getDelimiter()}, '\.', '') $this->operator ? THEN ROUND($relevance * ( {$this->getLengthMethod()}( ? ) / {$this->getLengthMethod()}( REPLACE({$this->getDelimiter()}$column{$this->getDelimiter()}, ' ', '') )), 0) ELSE 0 END";
     }
 
     /**
@@ -576,6 +607,10 @@ trait Searchable
     {
         if ($this->getDatabaseDriver() === 'sqlite') {
             return 'LENGTH';
+        }
+
+        if ($this->getDatabaseDriver() === 'sqlsrv') {
+            return 'LEN';
         }
 
         return 'CHAR_LENGTH';
@@ -626,9 +661,9 @@ trait Searchable
     {
         $this->search_bindings[] = $query;
         $this->search_bindings[] = $query;
-        $column = str_replace('.', '`.`', $column);
+        $column = str_replace('.', "{$this->getDelimiter()}.{$this->getDelimiter()}", $column);
 
-        $this->matcherQuery = "($relevance * ROUND(({$this->getLengthMethod()}(COALESCE(`$column`, '')) - {$this->getLengthMethod()}( REPLACE( LOWER(COALESCE(`$column`, '')), lower(?), ''))) / LENGTH(?)))";
+        $this->matcherQuery = "($relevance * ROUND(({$this->getLengthMethod()}(COALESCE({$this->getDelimiter()}$column{$this->getDelimiter()}, '')) - {$this->getLengthMethod()}( REPLACE( LOWER(COALESCE({$this->getDelimiter()}$column{$this->getDelimiter()}, '')), lower(?), ''))) / {$this->getLengthMethod()}(?), 0))";
     }
 
     /**
