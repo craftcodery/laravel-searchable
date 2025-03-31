@@ -25,7 +25,7 @@ use CraftCodery\Searchable\Searchable;
 class User extends Model
 {
     use Searchable;
-    
+
     /**
      * Get the searchable data array for the model.
      *
@@ -38,12 +38,19 @@ class User extends Model
                 'users.name'  => 60,
                 'users.email' => 60,
                 'locations.city' => 40,
+                'organizations.name' => 40
             ],
             'joins'   => [
                 'locations' => [
                     'users.location_id',
                     'locations.id'
                 ],
+                'organizations' => [
+                    // use commas to join on multiple columns, e.g. where
+                    // organizations.id equals primary_org_id OR secondary_or_id
+                    'users.primary_org_id,users.secondary_org_id',
+                    'organizations.id'
+                ]
             ],
             'groupBy' => 'users.id'
         ];

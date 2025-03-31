@@ -150,7 +150,13 @@ trait Searchable
     {
         foreach ($this->getJoins() as $table => $keys) {
             $query->leftJoin($table, function ($join) use ($keys) {
-                $join->on($keys[0], '=', $keys[1]);
+                $columns = explode(',', $keys[0]);
+                $join->on($columns[0], '=', $keys[1]);
+
+                for ($i = 1; $i < count($columns); $i++) {
+                    $join->orOn($columns[$i], '=', $keys[1]);
+                }
+
                 if (array_key_exists('whereIn', $keys)) {
                     $join->whereIn($keys['whereIn'][0], $keys['whereIn'][1]);
                 } elseif (array_key_exists('where', $keys)) {
@@ -473,7 +479,7 @@ trait Searchable
         if ($this->getDatabaseDriver() === 'sqlsrv') {
             return;
         }
-        
+
         if ($groupBy = $this->getGroupBy()) {
             $query->groupBy($groupBy);
         } else {
