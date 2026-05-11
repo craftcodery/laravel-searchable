@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `craftcodery/laravel-searchable` — a Laravel package providing a `Searchable` trait for Eloquent models. Installed into host Laravel apps via Composer. There is no test suite, no build step, and no lint config in this repo; changes are validated by consuming apps.
 
-Supports Laravel 10/11/12 on PHP ^8.2. Auto-registers `SearchableServiceProvider` via `extra.laravel.providers` in `composer.json`.
+Supports Laravel 10/11/12/13 on PHP ^8.2. Auto-registers `SearchableServiceProvider` via `extra.laravel.providers` in `composer.json`.
 
 ## Architecture
 
